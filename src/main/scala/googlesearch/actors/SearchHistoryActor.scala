@@ -16,9 +16,19 @@ case class Remembered(strings: GenSeq[String])
   * Sending RememberString(toRemember) causes remembering and replying with
   * Acknowledge.
   * Sending Remind causes replying with Remembered(strings).
+  *
+  * Doesn't persist memorized strings but stores it in the memory.
   */
 class SearchHistoryActor extends Actor {
-  def receive: Receive = ???
+  var rememberedStrings: Vector[String] = Vector.empty
+
+  def receive: Receive = {
+    case RememberString(toRemember) =>
+      rememberedStrings = rememberedStrings :+ toRemember
+      sender ! AcknowledgeRemembering
+
+    case Remind => sender ! Remembered(rememberedStrings)
+  }
 }
 
 object SearchHistoryActor {

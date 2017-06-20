@@ -19,11 +19,34 @@ class SearchHistoryActorTest
     }
 
     describe("History requesting") {
-      it("should restore one remembered string") {}
+      it("should restore one remembered string") {
+        val actor = system.actorOf(SearchHistoryActor.props)
 
-      it("should restore all remembered strings") {}
+        actor ! RememberString("foo")
+        expectMsg(AcknowledgeRemembering)
 
-      it("should respond with empty list if no strings stored") {}
+        actor ! Remind
+        expectMsg(Remembered(Seq("foo")))
+      }
+
+      it("should preserve order of memoization") {
+        val actor = system.actorOf(SearchHistoryActor.props)
+
+        actor ! RememberString("foo1")
+        expectMsg(AcknowledgeRemembering)
+        actor ! RememberString("foo2")
+        expectMsg(AcknowledgeRemembering)
+
+        actor ! Remind
+        expectMsg(Remembered(Seq("foo1", "foo2")))
+      }
+
+      it("should respond with empty list if no strings stored") {
+        val actor = system.actorOf(SearchHistoryActor.props)
+
+        actor ! Remind
+        expectMsg(Remembered(Seq.empty))
+      }
     }
   }
 
