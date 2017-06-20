@@ -2,11 +2,13 @@ package googlesearch.actors
 
 import akka.actor.{Actor, Props}
 
+import scala.collection.GenSeq
+
 case class RememberString(toRemember: String)
 case object AcknowledgeRemembering
 
 case object Remind
-case class Remembered(strings: Seq[String])
+case class Remembered(strings: GenSeq[String])
 
 /**
   * Stores strings to remember and gives away stored strings.
