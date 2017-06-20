@@ -12,11 +12,11 @@ case class Remembered(strings: GenSeq[String])
 
 /**
   * Stores strings to remember and gives away stored strings.
-  *
-  * Sending RememberString(toRemember) causes remembering and replying with
-  * Acknowledge.
-  * Sending Remind causes replying with Remembered(strings).
-  *
+  * <br><br>
+  * Sending `RememberString(toRemember)` causes remembering and replying with
+  * `Acknowledge`.
+  * Sending `Remind` causes replying with `Remembered(strings)`.
+  * <br><br>
   * Doesn't persist memorized strings but stores it in the memory.
   */
 class SearchHistoryActor extends Actor {
