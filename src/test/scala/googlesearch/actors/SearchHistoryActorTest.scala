@@ -2,6 +2,7 @@ package googlesearch.actors
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
+import googlesearch.actors.SearchHistoryActor._
 import org.scalatest.{BeforeAndAfterAll, FunSpecLike}
 
 class SearchHistoryActorTest
@@ -11,7 +12,7 @@ class SearchHistoryActorTest
   describe("SearchHistoryActor") {
     describe("String storing") {
       it("should acknowledge string storing") {
-        val actor = system.actorOf(SearchHistoryActor.props)
+        val actor = system.actorOf(props)
 
         actor ! RememberString("foo")
         expectMsg(AcknowledgeRemembering)
@@ -20,7 +21,7 @@ class SearchHistoryActorTest
 
     describe("History requesting") {
       it("should restore one remembered string") {
-        val actor = system.actorOf(SearchHistoryActor.props)
+        val actor = system.actorOf(props)
 
         actor ! RememberString("foo")
         expectMsg(AcknowledgeRemembering)
@@ -30,7 +31,7 @@ class SearchHistoryActorTest
       }
 
       it("should preserve order of memoization") {
-        val actor = system.actorOf(SearchHistoryActor.props)
+        val actor = system.actorOf(props)
 
         actor ! RememberString("foo1")
         expectMsg(AcknowledgeRemembering)
@@ -42,7 +43,7 @@ class SearchHistoryActorTest
       }
 
       it("should respond with empty list if no strings stored") {
-        val actor = system.actorOf(SearchHistoryActor.props)
+        val actor = system.actorOf(props)
 
         actor ! Remind
         expectMsg(Remembered(Seq.empty))
