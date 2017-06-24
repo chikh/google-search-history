@@ -15,14 +15,14 @@ import scala.collection.GenSeq
   * Doesn't persist memorized strings but stores it in the memory.
   */
 class SearchHistoryActor extends Actor {
-  var rememberedStrings: Vector[String] = Vector.empty
+  def receive = handlingHistory(Vector.empty)
 
-  def receive: Receive = {
+  def handlingHistory(remembered: Vector[String]): Receive = {
     case RememberString(toRemember) =>
-      rememberedStrings = rememberedStrings :+ toRemember
       sender ! AcknowledgeRemembering
+      context.become(handlingHistory(remembered :+ toRemember))
 
-    case Remind => sender ! Remembered(rememberedStrings)
+    case Remind => sender ! Remembered(remembered)
   }
 }
 
