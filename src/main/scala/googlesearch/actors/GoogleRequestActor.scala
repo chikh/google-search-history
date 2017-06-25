@@ -90,7 +90,7 @@ class GoogleRequestActor(
       ))
 
       entity.dataBytes.runFold(ByteString(""))(_ ++ _).map { body =>
-        val hrefRegexp = "href=\"(http[s]{0,1}://.*)\"".r
+        val hrefRegexp = """href=\"(http[s]{0,1}:\/\/[^"]*)\"""".r
         val links = hrefRegexp.findAllMatchIn(body.utf8String).map(_.group(1)).toVector
 
         requestIdToSender(requestId) ! SearchResults(requestId, links)
