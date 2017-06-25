@@ -68,7 +68,7 @@ class GoogleRequestActor(
       ))
 
       httpClient(HttpRequest(
-        uri = s"https://www.google.com/search?q=$searchQuery"
+        uri = s"https://www.google.ru/search?q=$searchQuery"
       )).map(HttpRequestResult(requestId, _)).pipeTo(self)
 
     case SearchHistoryActor.AcknowledgeRemembering(requestId) =>
