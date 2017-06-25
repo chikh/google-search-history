@@ -18,8 +18,6 @@ class GoogleRequestActorTest
   extends TestKit(ActorSystem("GoogleRequestActorTest")) with ImplicitSender
     with FunSpecLike with BeforeAndAfterAll with MockFactory {
 
-  val emptyActor: ActorRef = system.actorOf(Props.empty)
-
   val historyActorMock: ActorRef = system.actorOf(Props(new Actor {
     override def receive: Receive = {
       case RememberString(id, _) => sender() ! AcknowledgeRemembering(id)
@@ -56,7 +54,7 @@ class GoogleRequestActorTest
       it("should return URLs for the \"akka\" keyword") {
         val httpClient = mockFunction[HttpRequest, Future[HttpResponse]]
 
-        httpClient.expects(where {(r: HttpRequest) => r.uri.toString().contains("akka") })
+        httpClient.expects(*)
           .returning(Future.successful(HttpResponse(
             status = StatusCodes.OK,
             // TODO: should stream bytes from file instead of loading file into String
