@@ -63,9 +63,12 @@ object WebServer {
         }
       }
 
-    val bindingFuture = Http().bindAndHandle(route, "localhost", 8080)
+    val host = Configuration.host
+    val port = Configuration.port
 
-    println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
+    val bindingFuture = Http().bindAndHandle(route, host, port)
+
+    println(s"Server online at http://$host:$port/\nPress RETURN to stop...")
 
     StdIn.readLine()
     bindingFuture.flatMap(_.unbind()).onComplete(_ => system.terminate())

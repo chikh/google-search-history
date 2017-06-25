@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCode, StatusCodes}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
 import akka.util.ByteString
+import googlesearch.Configuration._
 import googlesearch.actors.GoogleRequestActor._
 
 import scala.concurrent.Future
@@ -26,7 +27,7 @@ class GoogleRequestActor(
                           searchHistory: ActorRef,
                           httpClient: HttpRequest => Future[HttpResponse],
                           initialQuota: GoogleQueryQuota =
-                            GoogleQueryQuota(15, 1.hour)
+                            GoogleQueryQuota(searchQuotaRequests, searchQuotaPeriod.minutes)
                         ) extends Actor with ActorLogging {
   import akka.pattern.pipe
   import context.dispatcher
@@ -67,9 +68,9 @@ class GoogleRequestActor(
         historyRequestIdToQuery - requestId
       ))
 
-      httpClient(HttpRequest(
-        uri = s"https://www.google.ru/search?q=$searchQuery"
-      )).map(HttpRequestResult(requestId, _)).pipeTo(self)
+      httpClient(HttpRequest(uri = s"$searchUrlPrefix$searchQuery"))
+        .map(HttpRequestResult(requestId, _))
+        .pipeTo(self)
 
     case SearchHistoryActor.AcknowledgeRemembering(requestId) =>
       context.become(handleWithState(
