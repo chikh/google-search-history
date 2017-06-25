@@ -45,7 +45,7 @@ object WebServer extends App {
           case Success(GoogleRequestActor.SearchResults(`requestId`, urls)) =>
             complete(SearchResult(urls))
           case Success(GoogleRequestActor.QueryLimitExceeded(_)) =>
-            complete(StatusCodes.Forbidden)
+            complete(StatusCodes.TooManyRequests)
           case Success(GoogleRequestActor.SearchError(code)) =>
             complete(code)
           case Failure(e) => failWith(e)
