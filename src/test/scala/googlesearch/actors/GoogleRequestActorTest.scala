@@ -142,4 +142,8 @@ class GoogleRequestActorTest
       }
     }
   }
+
+  override protected def afterAll() {
+    shutdown()
+  }
 }
