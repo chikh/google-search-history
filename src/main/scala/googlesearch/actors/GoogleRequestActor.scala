@@ -11,7 +11,8 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
-  * Performs google search request and returns all first page URLs.
+  * Performs google search request and returns all first page URLs. Implementation isn't save from
+  * duplicating requests and responses.
   *
   * <h1>Important!</h1>
   * There is the limitation on Google search queries per time period
@@ -57,6 +58,7 @@ class GoogleRequestActor(
     case SearchFor(requestId, _) => sender() ! QueryLimitExceeded(requestId)
 
     case SearchHistoryActor.AcknowledgeRemembering(requestId) if quota.requestsLeft > 0 =>
+      // TODO: Save from second acknowledgement with same requestId
       val searchQuery = historyRequestIdToQuery(requestId)
 
       context.become(handleWithState(
@@ -80,6 +82,7 @@ class GoogleRequestActor(
         historyRequestIdToQuery - requestId
       ))
 
+      // TODO: Save from second acknowledgement with same requestId
       requestIdToSender(requestId) ! QueryLimitExceeded(requestId)
 
     case HttpRequestResult(requestId, HttpResponse(StatusCodes.OK, _, entity, _)) =>
@@ -94,6 +97,7 @@ class GoogleRequestActor(
         val hrefRegexp = """href=\"(http[s]{0,1}:\/\/[^"]*)\"""".r
         val links = hrefRegexp.findAllMatchIn(body.utf8String).map(_.group(1)).toVector
 
+        // TODO: Consider absence of the request
         requestIdToSender(requestId) ! SearchResults(requestId, links)
       }
 
@@ -107,6 +111,7 @@ class GoogleRequestActor(
         historyRequestIdToQuery
       ))
 
+      // TODO: Consider absence of the request
       requestIdToSender(requestId) ! SearchError(code)
 
     case ResetQuota => context.become(handleWithState(
