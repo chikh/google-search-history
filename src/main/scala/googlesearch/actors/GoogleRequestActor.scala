@@ -31,19 +31,19 @@ class GoogleRequestActor(
   import akka.pattern.pipe
   import context.dispatcher
 
-
   final implicit val materializer: ActorMaterializer =
     ActorMaterializer(ActorMaterializerSettings(context.system))
 
   def receive: Receive = handleWithState(initialQuota, None, Map.empty, Map.empty)
 
+  // TODO: Refactor this into two actors: one for quota handling and one for http requests
   def handleWithState(
                        quota: GoogleQueryQuota,
                        quotaResetTimer: Option[Cancellable],
                        requestIdToSender: Map[String, ActorRef],
                        historyRequestIdToQuery: Map[String, String]
                      ): Receive = {
-    case SearchFor(requestId, query) if quota.times > 0 =>
+    case SearchFor(requestId, query) if quota.requestsLeft > 0 =>
       context.become(handleWithState(
         quota,
         quotaResetTimer,
@@ -55,13 +55,13 @@ class GoogleRequestActor(
 
     case SearchFor(requestId, _) => sender() ! QueryLimitExceeded(requestId)
 
-    case SearchHistoryActor.AcknowledgeRemembering(requestId) if quota.times > 0 =>
+    case SearchHistoryActor.AcknowledgeRemembering(requestId) if quota.requestsLeft > 0 =>
       val searchQuery = historyRequestIdToQuery(requestId)
 
       context.become(handleWithState(
-        quota.copy(times = quota.times - 1),
+        quota.copy(requestsLeft = quota.requestsLeft - 1),
         quotaResetTimer.orElse(Some(
-          context.system.scheduler.scheduleOnce(quota.period, self, ResetQuota)
+          context.system.scheduler.scheduleOnce(quota.replenishPeriod, self, ResetQuota)
         )),
         requestIdToSender,
         historyRequestIdToQuery - requestId
@@ -132,4 +132,4 @@ object GoogleRequestActor {
     Props(new GoogleRequestActor(searchHistory, httpClient))
 }
 
-case class GoogleQueryQuota(times: Int, period: FiniteDuration)
+case class GoogleQueryQuota(requestsLeft: Int, replenishPeriod: FiniteDuration)
