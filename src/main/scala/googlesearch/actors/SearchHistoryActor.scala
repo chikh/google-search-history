@@ -18,20 +18,20 @@ class SearchHistoryActor extends Actor {
   def receive = handlingHistory(Vector.empty)
 
   def handlingHistory(remembered: Vector[String]): Receive = {
-    case RememberString(toRemember) =>
-      sender ! AcknowledgeRemembering
+    case RememberString(requestId, toRemember) =>
+      sender ! AcknowledgeRemembering(requestId)
       context.become(handlingHistory(remembered :+ toRemember))
 
-    case Remind => sender ! Remembered(remembered)
+    case Remind(requestId) => sender ! Remembered(requestId, remembered)
   }
 }
 
 object SearchHistoryActor {
   def props: Props = Props[SearchHistoryActor]
 
-  case class RememberString(toRemember: String)
-  case object AcknowledgeRemembering
+  case class RememberString(requestId: String, toRemember: String)
+  case class AcknowledgeRemembering(requestId: String)
 
-  case object Remind
-  case class Remembered(strings: GenSeq[String])
+  case class Remind(requestId: String)
+  case class Remembered(requestId: String, strings: GenSeq[String])
 }

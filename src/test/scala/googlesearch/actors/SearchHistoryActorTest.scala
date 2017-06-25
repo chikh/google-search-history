@@ -14,8 +14,8 @@ class SearchHistoryActorTest
       it("should acknowledge string storing") {
         val actor = system.actorOf(props)
 
-        actor ! RememberString("foo")
-        expectMsg(AcknowledgeRemembering)
+        actor ! RememberString("0", "foo")
+        expectMsg(AcknowledgeRemembering("0"))
       }
     }
 
@@ -23,30 +23,30 @@ class SearchHistoryActorTest
       it("should restore one remembered string") {
         val actor = system.actorOf(props)
 
-        actor ! RememberString("foo")
-        expectMsg(AcknowledgeRemembering)
+        actor ! RememberString("0", "foo")
+        expectMsg(AcknowledgeRemembering("0"))
 
-        actor ! Remind
-        expectMsg(Remembered(Seq("foo")))
+        actor ! Remind("1")
+        expectMsg(Remembered("1", Seq("foo")))
       }
 
       it("should preserve order of memoization") {
         val actor = system.actorOf(props)
 
-        actor ! RememberString("foo1")
-        expectMsg(AcknowledgeRemembering)
-        actor ! RememberString("foo2")
-        expectMsg(AcknowledgeRemembering)
+        actor ! RememberString("0", "foo1")
+        actor ! RememberString("1", "foo2")
+        expectMsg(AcknowledgeRemembering("0"))
+        expectMsg(AcknowledgeRemembering("1"))
 
-        actor ! Remind
-        expectMsg(Remembered(Seq("foo1", "foo2")))
+        actor ! Remind("3")
+        expectMsg(Remembered("3", Seq("foo1", "foo2")))
       }
 
       it("should respond with empty list if no strings stored") {
         val actor = system.actorOf(props)
 
-        actor ! Remind
-        expectMsg(Remembered(Seq.empty))
+        actor ! Remind("0")
+        expectMsg(Remembered("0", Seq.empty))
       }
     }
   }
