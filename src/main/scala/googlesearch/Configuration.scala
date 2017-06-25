@@ -13,4 +13,5 @@ object Configuration {
     conf.getInt(s"$confPathPrefix.search-requests-quota.period-minutes")
   lazy val searchQuotaRequests: Int =
     conf.getInt(s"$confPathPrefix.search-requests-quota.requests-count")
+  lazy val webRequestTimeout: Int = conf.getInt(s"$confPathPrefix.web-request-timeout-seconds")
 }

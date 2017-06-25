@@ -25,7 +25,7 @@ object WebServer extends App {
   implicit val searchHistoryFormat = jsonFormat1(SearchHistory)
 
   implicit val system = ActorSystem()
-  implicit val timeout: Timeout = 5.seconds
+  implicit val timeout: Timeout = Configuration.webRequestTimeout.seconds
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = system.dispatcher
 
