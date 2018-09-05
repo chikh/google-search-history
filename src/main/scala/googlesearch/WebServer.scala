@@ -2,7 +2,8 @@ package googlesearch
 
 import java.util.UUID
 
-import akka.actor.ActorSystem
+import akka.Done
+import akka.actor.{ActorSystem, CoordinatedShutdown}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.StatusCodes
@@ -14,8 +15,8 @@ import googlesearch.actors.{GoogleRequestActor, SearchHistoryActor}
 import org.slf4j.{Logger, LoggerFactory}
 import spray.json.DefaultJsonProtocol._
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.io.StdIn
 import scala.util.{Failure, Success}
 
 object WebServer extends App {
@@ -67,10 +68,36 @@ object WebServer extends App {
   val host = Configuration.host
   val port = Configuration.port
 
-  val bindingFuture = Http().bindAndHandle(route, host, port)
+  log.debug("Start binding the routes")
 
-  log.info(s"Server online at http://$host:$port/ Press RETURN to stop...")
+  val bindingFuture = Http().bindAndHandle(
+    handler = route,
+    interface = host,
+    port = port
+  )
 
-  StdIn.readLine()
-  bindingFuture.flatMap(_.unbind()).onComplete(_ => system.terminate())
+  bindingFuture.foreach(_ =>
+    log.info("HTTP server is bound to {}:{}", host, port))
+
+  private val shutdown = CoordinatedShutdown(system)
+
+  shutdown.addTask(
+    CoordinatedShutdown.PhaseBeforeServiceUnbind,
+    "log-shutdown-started") { () =>
+      Future.successful {
+        log.warn("Application shutdown is triggered.")
+        Done
+      }
+    }
+
+  shutdown.addTask(
+    CoordinatedShutdown.PhaseServiceUnbind,
+    "shutdown-connection-pool") { () =>
+      bindingFuture.flatMap(_.unbind).flatMap { _ =>
+        Http().shutdownAllConnectionPools
+      }.map { _ =>
+        log.debug("Shutdown of the connection pool is finished")
+        Done
+      }
+    }
 }
