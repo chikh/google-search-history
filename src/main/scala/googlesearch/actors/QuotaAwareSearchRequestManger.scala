@@ -36,7 +36,6 @@ class QuotaAwareSearchRequestManger(
   def receive: Receive =
     handleWithState(initialQuota, None, Map.empty, Map.empty)
 
-  // TODO: Refactor this into two actors: one for quota handling and one for http requests
   def handleWithState(
     quota: GoogleQueryQuota,
     quotaResetTimer: Option[Cancellable],
