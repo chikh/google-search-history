@@ -11,6 +11,7 @@ import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import googlesearch.actors.{GoogleRequestActor, SearchHistoryActor}
+import org.slf4j.{Logger, LoggerFactory}
 import spray.json.DefaultJsonProtocol._
 
 import scala.concurrent.duration._
@@ -18,6 +19,8 @@ import scala.io.StdIn
 import scala.util.{Failure, Success}
 
 object WebServer extends App {
+  val log: Logger = LoggerFactory.getLogger(this.getClass)
+
   case class SearchResult(urls: Seq[String])
   case class SearchHistory(queries: Seq[String])
 
@@ -66,7 +69,7 @@ object WebServer extends App {
 
   val bindingFuture = Http().bindAndHandle(route, host, port)
 
-  println(s"Server online at http://$host:$port/\nPress RETURN to stop...")
+  log.info(s"Server online at http://$host:$port/ Press RETURN to stop...")
 
   StdIn.readLine()
   bindingFuture.flatMap(_.unbind()).onComplete(_ => system.terminate())

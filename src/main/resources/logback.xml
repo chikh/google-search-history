@@ -1,0 +1,16 @@
+<configuration>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%date{ISO8601} %highlight(%-5level) %cyan(%logger{36}) - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="STDOUT" />
+    </appender>
+
+    <root level="${LOG_LEVEL:-info}">
+        <appender-ref ref="ASYNC" />
+    </root>
+</configuration>
