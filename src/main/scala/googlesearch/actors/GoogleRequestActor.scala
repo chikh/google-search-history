@@ -7,7 +7,7 @@ import akka.util.ByteString
 import googlesearch.Configuration._
 import googlesearch.actors.GoogleRequestActor._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 /**
@@ -21,8 +21,8 @@ import scala.concurrent.duration._
   * IP.
   *
   * @param searchHistory [[googlesearch.actors.SearchHistoryActor]]
-  * @param httpClient HTTP GET request service
-  * @param initialQuota Google's limits configuration
+  * @param httpClient    HTTP GET request service
+  * @param initialQuota  Google's limits configuration
   */
 class GoogleRequestActor(
                           searchHistory: ActorRef,
@@ -30,6 +30,7 @@ class GoogleRequestActor(
                           initialQuota: GoogleQueryQuota =
                             GoogleQueryQuota(searchQuotaRequests, searchQuotaPeriod.minutes)
                         ) extends Actor with ActorLogging {
+
   import akka.pattern.pipe
   import context.dispatcher
 
@@ -93,6 +94,9 @@ class GoogleRequestActor(
         historyRequestIdToQuery
       ))
 
+      implicit val ec: ExecutionContext = context.system.dispatchers.lookup("parser-dispatcher")
+
+      // TODO: use another Materializer (thread pool) for folding bytes
       entity.dataBytes.runFold(ByteString(""))(_ ++ _).map { body =>
         val hrefRegexp = """href=\"(http[s]{0,1}:\/\/[^"]*)\"""".r
         val links = hrefRegexp.findAllMatchIn(body.utf8String).map(_.group(1)).toVector
