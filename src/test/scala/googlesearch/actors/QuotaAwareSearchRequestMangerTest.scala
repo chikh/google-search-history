@@ -6,7 +6,8 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
-import googlesearch.actors.GoogleRequestActor._
+import googlesearch.actors.QuotaAwareSearchRequestManger._
+import googlesearch.actors.ResponseToLinksParser.SearchResults
 import googlesearch.actors.SearchHistoryActor.{AcknowledgeRemembering, RememberString}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{BeforeAndAfterAll, FunSpecLike}
@@ -14,7 +15,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSpecLike}
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class GoogleRequestActorTest
+class QuotaAwareSearchRequestMangerTest
   extends TestKit(ActorSystem("GoogleRequestActorTest")) with ImplicitSender
     with FunSpecLike with BeforeAndAfterAll with MockFactory {
 
@@ -81,7 +82,7 @@ class GoogleRequestActorTest
       it("should return error when no quota left") {
         val httpClient = mockFunction[HttpRequest, Future[HttpResponse]]
 
-        val actor = system.actorOf(Props(new GoogleRequestActor(
+        val actor = system.actorOf(Props(new QuotaAwareSearchRequestManger(
           historyActorMock,
           httpClient,
           GoogleQueryQuota(0, 42.minutes)
@@ -100,7 +101,7 @@ class GoogleRequestActorTest
           .atLeastOnce()
           .returning(Future.successful(HttpResponse(status = StatusCodes.OK)))
 
-        val actor = system.actorOf(Props(new GoogleRequestActor(
+        val actor = system.actorOf(Props(new QuotaAwareSearchRequestManger(
           historyActorMock,
           httpClient,
           GoogleQueryQuota(2, 42.minutes)
@@ -111,8 +112,8 @@ class GoogleRequestActorTest
         actor ! SearchFor("2", "foo")
 
         expectMsg(QueryLimitExceeded("2"))
-        expectMsg(SearchResults("0", Seq.empty))
-        expectMsg(SearchResults("1", Seq.empty))
+        expectMsgClass(classOf[SearchResults])
+        expectMsgClass(classOf[SearchResults])
       }
 
       it("should replenish quota after some period defined") {
@@ -123,7 +124,7 @@ class GoogleRequestActorTest
           .atLeastOnce()
           .returning(Future.successful(HttpResponse(status = StatusCodes.OK)))
 
-        val actor = system.actorOf(Props(new GoogleRequestActor(
+        val actor = system.actorOf(Props(new QuotaAwareSearchRequestManger(
           historyActorMock,
           httpClient,
           GoogleQueryQuota(1, 100.milliseconds)

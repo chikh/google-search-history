@@ -2,7 +2,7 @@ package googlesearch.actors
 
 import akka.actor.{Actor, ActorRef, Props}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import googlesearch.actors.GoogleRequestActor.SearchFor
+import googlesearch.actors.QuotaAwareSearchRequestManger.SearchFor
 import googlesearch.actors.SearchHistoryActor.Remind
 
 import scala.concurrent.Future
@@ -13,13 +13,14 @@ object SearchSupervisor {
 }
 
 class SearchSupervisor(
-                        httpClient: HttpRequest => Future[HttpResponse]
-                      ) extends Actor {
+  httpClient: HttpRequest => Future[HttpResponse]
+) extends Actor {
+
   val historyActor: ActorRef =
     context.system.actorOf(SearchHistoryActor.props, "history")
 
   val requestActor: ActorRef =
-    context.system.actorOf(GoogleRequestActor.props(historyActor, httpClient))
+    context.system.actorOf(QuotaAwareSearchRequestManger.props(historyActor, httpClient))
 
   override def receive: Receive = {
     case m: SearchFor => requestActor forward m

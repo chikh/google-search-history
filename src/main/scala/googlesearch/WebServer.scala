@@ -11,7 +11,7 @@ import akka.http.scaladsl.server.Directives.{path, _}
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import googlesearch.actors.{GoogleRequestActor, SearchHistoryActor, SearchSupervisor}
+import googlesearch.actors.{QuotaAwareSearchRequestManger, ResponseToLinksParser, SearchHistoryActor, SearchSupervisor}
 import org.slf4j.{Logger, LoggerFactory}
 import spray.json.DefaultJsonProtocol._
 
@@ -23,6 +23,7 @@ object WebServer extends App {
   val log: Logger = LoggerFactory.getLogger(this.getClass)
 
   case class SearchResult(urls: Seq[String])
+
   case class SearchHistory(queries: Seq[String])
 
   implicit val searchResultFormat = jsonFormat1(SearchResult)
@@ -45,12 +46,12 @@ object WebServer extends App {
       (get & path(Segment)) { (query) =>
         val requestId = UUID.randomUUID().toString
 
-        onComplete(searchSupervisor ? GoogleRequestActor.SearchFor(requestId, query)) {
-          case Success(GoogleRequestActor.SearchResults(`requestId`, urls)) =>
+        onComplete(searchSupervisor ? QuotaAwareSearchRequestManger.SearchFor(requestId, query)) {
+          case Success(ResponseToLinksParser.SearchResults(`requestId`, urls)) =>
             complete(SearchResult(urls))
-          case Success(GoogleRequestActor.QueryLimitExceeded(_)) =>
+          case Success(QuotaAwareSearchRequestManger.QueryLimitExceeded(_)) =>
             complete(StatusCodes.TooManyRequests)
-          case Success(GoogleRequestActor.SearchError(code)) =>
+          case Success(QuotaAwareSearchRequestManger.SearchError(code)) =>
             complete(code)
           case Failure(e) => failWith(e)
         }
@@ -84,20 +85,20 @@ object WebServer extends App {
   shutdown.addTask(
     CoordinatedShutdown.PhaseBeforeServiceUnbind,
     "log-shutdown-started") { () =>
-      Future.successful {
-        log.warn("Application shutdown is triggered.")
-        Done
-      }
+    Future.successful {
+      log.warn("Application shutdown is triggered.")
+      Done
     }
+  }
 
   shutdown.addTask(
     CoordinatedShutdown.PhaseServiceUnbind,
     "shutdown-connection-pool") { () =>
-      bindingFuture.flatMap(_.unbind).flatMap { _ =>
-        Http().shutdownAllConnectionPools
-      }.map { _ =>
-        log.debug("Shutdown of the connection pool is finished")
-        Done
-      }
+    bindingFuture.flatMap(_.unbind).flatMap { _ =>
+      Http().shutdownAllConnectionPools
+    }.map { _ =>
+      log.debug("Shutdown of the connection pool is finished")
+      Done
     }
+  }
 }

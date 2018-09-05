@@ -2,7 +2,7 @@
 
 ## Overview
 This is simple (but theoretically scalable) HTTP service which provides links from Google's search
-first page and stores search history.
+first page and stores search keywords history.
 
 ## Usage
 1. Install Java (JDK) version 7 at least
@@ -16,14 +16,10 @@ be different according to your settings)
 according to your settings)
 
 ## Implementation details and limitations
-Leverages Akka framework and consists of actors baked in a functional way. There is a requirement
-to have only two actors (one for the history logging and one for the requesting), but Google's
-limitations of non-browser search queries made querying actor's implementation way too convoluted.
-So there is a need to split it into two actors that could potentially be easily scale to increase
-throughput of service.
+Leverages Akka framework and consists of actors baked in a functional way.
 
-Also:
+Known problems:
+1. Failure domains are not fully elaborated
 1. There is possible to search only for single keyword (not a sentence) at once because query
 escaping is not implemented
 1. Page parser gets all URLs from the search result page not only the actual search results
-1. Failure domains are not fully elaborated

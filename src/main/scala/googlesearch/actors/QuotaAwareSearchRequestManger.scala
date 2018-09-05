@@ -1,13 +1,13 @@
 package googlesearch.actors
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
+import akka.actor.{Actor, ActorRef, Cancellable, Props}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCode, StatusCodes}
-import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
-import akka.util.ByteString
+import akka.stream.ActorMaterializer
 import googlesearch.Configuration._
-import googlesearch.actors.GoogleRequestActor._
+import googlesearch.actors.QuotaAwareSearchRequestManger._
+import googlesearch.actors.HttpRequestPerformer.HttpRequestResult
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
@@ -20,32 +20,29 @@ import scala.concurrent.duration._
   * SO</a>). So there is should be one `this` actor per one node having unique
   * IP.
   *
-  * @param searchHistory [[googlesearch.actors.SearchHistoryActor]]
+  * @param searchHistory Ref to [[googlesearch.actors.SearchHistoryActor]]
   * @param httpClient    HTTP GET request service
   * @param initialQuota  Google's limits configuration
   */
-class GoogleRequestActor(
-                          searchHistory: ActorRef,
-                          httpClient: HttpRequest => Future[HttpResponse],
-                          initialQuota: GoogleQueryQuota =
-                            GoogleQueryQuota(searchQuotaRequests, searchQuotaPeriod.minutes)
-                        ) extends Actor with ActorLogging {
+class QuotaAwareSearchRequestManger(
+  searchHistory: ActorRef,
+  httpClient: HttpRequest => Future[HttpResponse],
+  initialQuota: GoogleQueryQuota =
+  GoogleQueryQuota(searchQuotaRequests, searchQuotaPeriod.minutes)
+) extends Actor {
 
-  import akka.pattern.pipe
   import context.dispatcher
 
-  implicit val materializer: ActorMaterializer =
-    ActorMaterializer(ActorMaterializerSettings(context.system))
-
-  def receive: Receive = handleWithState(initialQuota, None, Map.empty, Map.empty)
+  def receive: Receive =
+    handleWithState(initialQuota, None, Map.empty, Map.empty)
 
   // TODO: Refactor this into two actors: one for quota handling and one for http requests
   def handleWithState(
-                       quota: GoogleQueryQuota,
-                       quotaResetTimer: Option[Cancellable],
-                       requestIdToSender: Map[String, ActorRef],
-                       historyRequestIdToQuery: Map[String, String]
-                     ): Receive = {
+    quota: GoogleQueryQuota,
+    quotaResetTimer: Option[Cancellable],
+    requestIdToSender: Map[String, ActorRef],
+    historyRequestIdToQuery: Map[String, String]
+  ): Receive = {
     case SearchFor(requestId, query) if quota.requestsLeft > 0 =>
       context.become(handleWithState(
         quota,
@@ -71,9 +68,10 @@ class GoogleRequestActor(
         historyRequestIdToQuery - requestId
       ))
 
-      httpClient(HttpRequest(uri = s"$searchUrlPrefix$searchQuery"))
-        .map(HttpRequestResult(requestId, _))
-        .pipeTo(self)
+      val searchRequest = HttpRequest(uri = s"$searchUrlPrefix$searchQuery")
+
+      context.actorOf(HttpRequestPerformer.props(httpClient)) !
+        HttpRequestPerformer.Get(requestId, searchRequest)
 
     case SearchHistoryActor.AcknowledgeRemembering(requestId) =>
       context.become(handleWithState(
@@ -94,18 +92,19 @@ class GoogleRequestActor(
         historyRequestIdToQuery
       ))
 
-      implicit val ec: ExecutionContext = context.system.dispatchers.lookup("parser-dispatcher")
+      // TODO: Consider absence of the request
+      val originalRequester = requestIdToSender(requestId)
 
-      // TODO: use another Materializer (thread pool) for folding bytes
-      entity.dataBytes.runFold(ByteString(""))(_ ++ _).map { body =>
-        val hrefRegexp = """href=\"(http[s]{0,1}:\/\/[^"]*)\"""".r
-        val links = hrefRegexp.findAllMatchIn(body.utf8String).map(_.group(1)).toVector
+      context.system.actorOf(ResponseToLinksParser.props) !
+        ResponseToLinksParser.ParseForLinks(
+          requestId,
+          originalRequester,
+          entity
+        )
 
-        // TODO: Consider absence of the request
-        requestIdToSender(requestId) ! SearchResults(requestId, links)
-      }
+    case HttpRequestResult(requestId, resp@HttpResponse(code, _, _, _)) =>
+      implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-    case HttpRequestResult(requestId, resp @ HttpResponse(code, _, _, _)) =>
       resp.discardEntityBytes()
 
       context.become(handleWithState(
@@ -127,19 +126,17 @@ class GoogleRequestActor(
   }
 }
 
-object GoogleRequestActor {
+object QuotaAwareSearchRequestManger {
   case class SearchFor(requestId: String, query: String)
-  case class SearchResults(requestId: String, urls: Seq[String])
   case class QueryLimitExceeded(requestId: String)
   case class SearchError(code: StatusCode)
-  case class HttpRequestResult(requestId: String, response: HttpResponse)
   case object ResetQuota
 
   def props(
-             searchHistory: ActorRef,
-             httpClient: HttpRequest => Future[HttpResponse]
-           ): Props =
-    Props(new GoogleRequestActor(searchHistory, httpClient))
+    searchHistory: ActorRef,
+    httpClient: HttpRequest => Future[HttpResponse]
+  ): Props =
+    Props(new QuotaAwareSearchRequestManger(searchHistory, httpClient))
 }
 
 case class GoogleQueryQuota(requestsLeft: Int, replenishPeriod: FiniteDuration)
