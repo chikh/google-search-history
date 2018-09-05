@@ -11,7 +11,7 @@ import akka.http.scaladsl.server.Directives.{path, _}
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import googlesearch.actors.{GoogleRequestActor, SearchHistoryActor}
+import googlesearch.actors.{GoogleRequestActor, SearchHistoryActor, SearchSupervisor}
 import org.slf4j.{Logger, LoggerFactory}
 import spray.json.DefaultJsonProtocol._
 
@@ -35,17 +35,17 @@ object WebServer extends App {
 
   val http = Http(system)
 
-  // TODO: it is better to have custom supervisor of these two actors
-  val historyActor = system.actorOf(SearchHistoryActor.props, "history")
-  val requestActor = system.actorOf(GoogleRequestActor.props(
-    historyActor, request => http.singleRequest(request)))
+  val searchSupervisor = system.actorOf(
+    SearchSupervisor.props(request => http.singleRequest(request)),
+    "searchSupervisor"
+  )
 
   val route =
     pathPrefix("search") {
       (get & path(Segment)) { (query) =>
         val requestId = UUID.randomUUID().toString
 
-        onComplete(requestActor ? GoogleRequestActor.SearchFor(requestId, query)) {
+        onComplete(searchSupervisor ? GoogleRequestActor.SearchFor(requestId, query)) {
           case Success(GoogleRequestActor.SearchResults(`requestId`, urls)) =>
             complete(SearchResult(urls))
           case Success(GoogleRequestActor.QueryLimitExceeded(_)) =>
@@ -59,7 +59,7 @@ object WebServer extends App {
       get {
         val requestId = UUID.randomUUID().toString
 
-        complete((historyActor ? SearchHistoryActor.Remind(requestId)) map {
+        complete((searchSupervisor ? SearchHistoryActor.Remind(requestId)) map {
           case SearchHistoryActor.Remembered(`requestId`, queries) => SearchHistory(queries.seq)
         })
       }
