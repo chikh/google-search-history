@@ -34,7 +34,7 @@ class GoogleRequestActor(
   import akka.pattern.pipe
   import context.dispatcher
 
-  final implicit val materializer: ActorMaterializer =
+  implicit val materializer: ActorMaterializer =
     ActorMaterializer(ActorMaterializerSettings(context.system))
 
   def receive: Receive = handleWithState(initialQuota, None, Map.empty, Map.empty)
