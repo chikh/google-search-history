@@ -23,3 +23,4 @@ Known problems:
 1. There is possible to search only for single keyword (not a sentence) at once because query
 escaping is not implemented
 1. Page parser gets all URLs from the search result page not only the actual search results
+1. It's a bad idea to pass streams over the wire
